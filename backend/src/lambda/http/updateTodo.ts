@@ -9,7 +9,6 @@ import { UpdateTodoRequest } from '../../requests/UpdateTodoRequest'
 
 export const handler = middy(
   async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
-    console.log('Processing Event ', event)
     const authorization = event.headers.Authorization
     const split = authorization.split(' ')
     const jwtToken = split[1]
