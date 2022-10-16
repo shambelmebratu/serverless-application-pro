@@ -27,14 +27,11 @@ export class ToDoAccess {
         ':userId': userId
       }
     }
-
     const result = await this.docClient.query(params).promise()
     console.log(result)
     const items = result.Items
-
     return items as TodoItem[]
   }
-
   async createToDo(todoItem: TodoItem): Promise<TodoItem> {
     const params = {
       TableName: this.myTabel,
@@ -44,7 +41,6 @@ export class ToDoAccess {
     console.log(result)
     return todoItem as TodoItem
   }
-
   async updateToDo(
     todoUpdate: TodoUpdate,
     todoId: string,
@@ -69,13 +65,10 @@ export class ToDoAccess {
       },
       ReturnValues: 'NEW_ToDo'
     }
-
     const result = await this.docClient.update(params).promise()
     const updated = result.Attributes
-
     return updated as TodoUpdate
   }
-
   async deleteToDo(todoId: string, userId: string): Promise<string> {
     const params = {
       TableName: this.myTabel,
@@ -86,10 +79,8 @@ export class ToDoAccess {
     }
     const result = await this.docClient.delete(params).promise()
     console.log(result)
-
     return ''
   }
-
   async generateUploadUrl(todoId: string): Promise<string> {
     const url = this.s3Client.getSignedUrl('putObject', {
       Bucket: this.myBucket,
@@ -97,7 +88,6 @@ export class ToDoAccess {
       Expires: 2000
     })
     console.log(url)
-
     return url
   }
 }
