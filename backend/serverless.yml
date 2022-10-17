@@ -25,7 +25,8 @@ provider:
   # ${self:provider.environment.ATTACHMENT_S3_BUCKET}
   environment:
     PROJECT_NAME: shambi21
-    TODOS_TABLE: Todos-${self:provider.stage}
+    TODOS_TABLE: ToDos-${self:provider.stage}
+    TODOS_CREATED_AT_INDEX: CreatedAtIndex
     S3_BUCKET_NAME: shambi-bucket-serverless-${self:provider.stage}
     SIGNED_URL_EXPIRATION: 300
 
@@ -87,11 +88,19 @@ functions:
         Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOS_TABLE}
       - Effect: Allow
         Action:
+          - dynamodb:Query
+        Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOS_TABLE}/index/${self:provider.environment.TODOS_CREATED_AT_INDEX}
+      - Effect: Allow
+        Action:
+          - s3:GetObject
+        Resource: arn:aws:s3:::${self:provider.environment.S3_BUCKET_NAME}/*
+      - Effect: Allow
+        Action:
           - xray:PutTraceSegments
         Resource: 
           - '*'
 
-# Create todo
+# Create todo cors
   CreateTodo:
     handler: src/lambda/http/createTodo.handler
     events:
@@ -119,7 +128,7 @@ functions:
           - '*'
 
 
-# Update todo
+# Update todo cors
 
   UpdateTodo:
     handler: src/lambda/http/updateTodo.handler
@@ -146,9 +155,7 @@ functions:
           - xray:PutTraceSegments
         Resource: 
           - '*'
-
-### Delete Todo
-
+### Delete Todo cors
   DeleteTodo:
     handler: src/lambda/http/deleteTodo.handler
     events:
@@ -171,7 +178,6 @@ functions:
 
   # TODO: Configure this function
   # Provide property for setting up CORS, Authorizer, iamRoleStatements
-
   GenerateUploadUrl:
     handler: src/lambda/http/generateUploadUrl.handler
     events:
@@ -188,7 +194,6 @@ functions:
           - xray:PutTraceSegments 
         Resource: arn:aws:s3:::${self:provider.environment.S3_BUCKET_NAME}/*
 
-
 resources:
   Resources:
     # TODO: Add any necessary AWS resources
@@ -200,6 +205,8 @@ resources:
             AttributeType: S
           - AttributeName: todoId
             AttributeType: S
+          - AttributeName: createdAt
+            AttributeType: S
         KeySchema:
           - AttributeName: userId
             KeyType: HASH
@@ -207,14 +214,16 @@ resources:
             KeyType: RANGE
         BillingMode: PAY_PER_REQUEST
         TableName: ${self:provider.environment.TODOS_TABLE}
-    onlyBody:
-      Type: "AWS::ApiGateway::RequestValidator"
-      Properties:
-        Name: 'only-body'
-        RestApiId:
-          Ref: ApiGatewayRestApi
-        ValidateRequestBody: true
-        ValidateRequestParameters: false
+        LocalSecondaryIndexes:
+          - IndexName: ${self:provider.environment.TODOS_CREATED_AT_INDEX}
+            KeySchema:
+              - AttributeName: userId
+                KeyType: HASH
+              - AttributeName: createdAt
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL 
+
     AttachmentsBucket:
       Type: AWS::S3::Bucket
       Properties:

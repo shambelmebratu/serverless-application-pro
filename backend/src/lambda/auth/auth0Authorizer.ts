@@ -1,13 +1,13 @@
 import { CustomAuthorizerEvent, CustomAuthorizerResult } from 'aws-lambda'
 import 'source-map-support/register'
-import { verify} from 'jsonwebtoken'
-import { createLogger } from '../../utils/logger'
-import Axios from 'axios'
-import { JwtPayload } from '../../auth/JwtPayload'
-  
-const logger = createLogger('auth');
 
-// TODO: Provide a URL that can be used to download a certificate that can be used
+import { verify, decode } from 'jsonwebtoken'
+import { createLogger } from '../../utils/logger'
+import { Jwt } from '../../auth/Jwt'
+import { JwtPayload } from '../../auth/JwtPayload'
+import * as jwksClient from 'jwks-rsa'
+
+const logger = createLogger('auth')
 // to verify JWT token signature.
 // To get this URL you need to go to an Auth0 page -> Show Advanced Settings -> Endpoints -> JSON Web Key Set
 const jwksUrl = 'https://dev-tcimf2lv.us.auth0.com/.well-known/jwks.json'
@@ -34,7 +34,7 @@ export const handler = async (
       }
     }
   } catch (e) {
-    logger.error('User not authorized', { error: e.message })
+    logger.error('not authorized', { error: e.message })
 
     return {
       principalId: 'user',
@@ -53,26 +53,29 @@ export const handler = async (
 }
 
 async function verifyToken(authHeader: string): Promise<JwtPayload> {
-  try {
+  const token = getToken(authHeader)
+  const jwt: Jwt = decode(token, { complete: true }) as Jwt
 
-    const token = getToken(authHeader)
-    const res = await Axios.get(jwksUrl);
-
-    // You can read more about how to do this here: https://auth0.com/blog/navigating-rs256-and-jwks/
-    const pemData = res['data']['keys'][0]['x5c'][0]
-    const cert = `-----BEGIN CERTIFICATE-----\n${pemData}\n-----END CERTIFICATE-----`
-
-    return verify(token, cert, { algorithms: ['RS256'] }) as JwtPayload
-  } catch(err){
-    logger.error('Fail to authenticate', err)
+  if (jwt === null) {
+    throw new Error('this is Invalid token')
   }
+
+  const client = jwksClient({
+    jwksUri: jwksUrl
+  })
+
+  const { kid } = jwt.header
+  const key = await client.getSigningKey(kid)
+  const signingKey = key.getPublicKey()
+
+  return verify(token, signingKey, { algorithms: ['RS256'] }) as JwtPayload
 }
 
 function getToken(authHeader: string): string {
-  if (!authHeader) throw new Error('No authentication header')
+  if (!authHeader) throw new Error('there is no authentication header')
 
   if (!authHeader.toLowerCase().startsWith('bearer '))
-    throw new Error('Invalid authentication header')
+    throw new Error('not valid authentication header')
 
   const split = authHeader.split(' ')
   const token = split[1]
