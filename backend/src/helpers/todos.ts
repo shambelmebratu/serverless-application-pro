@@ -15,14 +15,14 @@ export async function createTodo(
   CreateTodoRequest: CreateTodoRequest,
   userId: string
 ) {
-  logger.info('Creat an item')
+  logger.info('Creating an item')
   const itemId = uuid.v4()
   const todoItem: TodoItem = {
     userId,
     createdAt: new Date().toISOString(),
     todoId: itemId,
     done: false,
-    attachmentUrl: `https://${process.env.S3_BUCKET_NAME}.s3.amazonaws.com/${itemId}`,
+    attachmentUrl: `https://${process.env.ATTACHMENT_S3_BUCKET}.s3.amazonaws.com/${itemId}`,
     ...CreateTodoRequest
   }
 
@@ -34,7 +34,7 @@ export async function deleteTodo(todoId: string, userId: string) {
   const todoExists = await todosAccess.getTodo(todoId, userId)
   if (!todoExists) {
     logger.warn('Failed to delete')
-    throw createError(404, "item doesn't exist!")
+    throw createError(404, "item doesn't exist")
   }
   return await todosAccess.deleteTodo(todoId, userId)
 }
@@ -53,11 +53,13 @@ export async function updateTodo(
 }
 
 export async function getTodosForUser(userId: string): Promise<TodoItem[]> {
+  logger.info('Retrive all items')
+
   const todos = await todosAccess.getAllTodos(userId)
   return todos
 }
 
 export async function createAttachmentPresignedUrl(todoId: string, userId: string) {
-  logger.info(`Get presigned url ${todoId} for user ${userId}`)
+  logger.info(`Getting pre-signed url for item ${todoId} for user ${userId}`)
   return attachmentUtils.getPresignedUploadURL(todoId)
 }
